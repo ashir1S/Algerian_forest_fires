@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.x-blue)
 ![scikit--learn](https://img.shields.io/badge/scikit--learn-Regression-orange)
 ![Status](https://img.shields.io/badge/status-learning--project-green)
-![License](https://img.shields.io/badge/license-add--one-lightgrey)
 
 A regression pipeline for predicting the **Fire Weather Index (FWI)** from the Algerian Forest Fires dataset, covering data cleaning, exploratory analysis, feature engineering, and a comparison of Linear, Ridge, Lasso, and ElasticNet regression models with cross-validated hyperparameter tuning.
 
