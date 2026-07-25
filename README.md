@@ -20,8 +20,7 @@
 7. [⚠️ Things Worth Reconsidering](#7-️-things-worth-reconsidering)
 8. [Tech Stack](#8-tech-stack)
 9. [How to Run](#9-how-to-run)
-10. [🔧 To-Do / Revise Later](#10--to-do--revise-later)
-11. [Author](#11-author)
+10. [Author](#11-author)
 
 ---
 
