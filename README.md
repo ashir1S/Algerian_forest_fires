@@ -36,8 +36,8 @@ The dataset also includes a binary `Classes` column, which would support a class
 
 | Notebook | Role |
 |---|---|
-| `Ridge__Lasso_Regression.ipynb` | Loads the **raw** CSV, cleans it, explores it (EDA), and writes out a cleaned CSV |
-| `Model_Training.ipynb` | Loads the **cleaned** CSV, engineers features, trains 4 regression models (+ 3 cross-validated variants), and evaluates them |
+| `01_Data_Cleaning_and_EDA.ipynb` | Loads the **raw** CSV, cleans it, explores it (EDA), and writes out a cleaned CSV |
+| `02_Model_Training.ipynb` | Loads the **cleaned** CSV, engineers features, trains 4 regression models (+ 3 cross-validated variants), and evaluates them |
 
 ---
 
