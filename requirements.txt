@@ -1,1 +1,14 @@
+# Data Manipulation
+pandas
+numpy
 
+# Data Visualization
+matplotlib
+seaborn
+
+# Machine Learning
+# Pinned below 1.2.0 to support the legacy 'normalize' parameter in RidgeCV
+scikit-learn<1.2.0
+
+# Notebook Environment
+jupyter
