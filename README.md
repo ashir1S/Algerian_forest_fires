@@ -233,7 +233,7 @@ Actual numbers from this run (test set, `random_state=42`):
 
 ## 7. ⚠️ Things Worth Reconsidering
 
-Being direct about weak spots, since this is a project you'll keep revising:
+Limitation:
 
 - **Possible target leakage.** `Classes` (fire / not fire) is kept as an **input feature** to predict `FWI`. But FWI is the standard input used to *derive* fire-risk classifications in the first place — so `Classes` is highly correlated with the very thing being predicted (0.78 correlation with FFMC, and by extension with FWI). Worth testing model performance **with `Classes` excluded** from `X` to see how much of that 0.98 R² is coming from this shortcut.
 - **RidgeCV's alpha grid is the sklearn default (`[0.1, 1, 10]`)** — never widened. Worth trying `RidgeCV(alphas=np.logspace(-3, 3, 50))` to see if a better alpha exists outside that narrow range.
