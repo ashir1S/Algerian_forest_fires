@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-learning--project-green)
 ![License](https://img.shields.io/badge/license-add--one-lightgrey)
 
-> A step-by-step, teacher-style walkthrough of how this project turns raw Algerian weather-station readings into a tuned regression model that predicts the **Fire Weather Index (FWI)**. Written so that future-you (or anyone else) can open this file, follow the diagrams, and understand *why* each step exists — not just *what* it does.
+A regression pipeline for predicting the **Fire Weather Index (FWI)** from the Algerian Forest Fires dataset, covering data cleaning, exploratory analysis, feature engineering, and a comparison of Linear, Ridge, Lasso, and ElasticNet regression models with cross-validated hyperparameter tuning.
 
 ---
 
@@ -17,10 +17,10 @@
 4. [Step-by-Step Walkthrough](#4-step-by-step-walkthrough)
 5. [Model Comparison / Results](#5-model-comparison--results)
 6. [Key ML Concepts Covered](#6-key-ml-concepts-covered)
-7. [⚠️ Things Worth Reconsidering](#7-️-things-worth-reconsidering)
+7. [Limitations](#7-limitations)
 8. [Tech Stack](#8-tech-stack)
 9. [How to Run](#9-how-to-run)
-10. [Author](#11-author)
+10. [Author](#10-author)
 
 ---
 
@@ -30,7 +30,7 @@
 
 **Target variable:** `FWI` (Fire Weather Index) — a continuous score, so this is framed as a **regression problem**.
 
-> 📌 Note: the dataset also ships with a ready-made binary `Classes` column, which would support a *classification* formulation ("will there be a fire, yes/no?"). This project doesn't do that — it predicts the numeric FWI score instead. That's a reasonable v2 extension (see [To-Do](#10--to-do--revise-later)).
+The dataset also includes a binary `Classes` column, which would support a classification formulation ("will there be a fire?"). This project instead predicts the continuous FWI score; a classification variant using `Classes` as the target is a natural extension.
 
 **Two notebooks, two jobs:**
 
@@ -43,7 +43,7 @@
 
 ## 2. The Big Picture — End-to-End Pipeline
 
-Read this top to bottom — it's the whole project in one diagram.
+The diagram below summarizes the complete workflow, from raw data to final model selection.
 
 ```mermaid
 flowchart TD
@@ -66,14 +66,14 @@ flowchart TD
     I2 --> J
     I3 --> J
     I4 --> J
-    J --> K["🏆 Pick the Best Model"]
+    J --> K["🏆 Select Best Model"]
 ```
 
 ---
 
 ## 3. Repository Structure
 
-> This is the suggested layout — rename paths below to match your actual folders, then delete this note.
+> Suggested layout — update paths to match the actual repository structure.
 
 ```
 Algerian-Forest-Fire-FWI-Prediction/
@@ -95,31 +95,31 @@ Algerian-Forest-Fire-FWI-Prediction/
 ## 4. Step-by-Step Walkthrough
 
 ### Step 1 — Load & Understand the Raw Data
-The raw CSV has a quirky header (the real column names start on row 2, hence `header=1` when reading it), and it silently contains **two datasets stacked together** — the first 122 rows are the Bejaia region, the rest are Sidi-Bel Abbes, separated by a blank row.
+The raw CSV has a two-row header — the actual column names start on row 2, so `header=1` is used when reading it. The file also contains two datasets concatenated together: the first 122 rows correspond to the Bejaia region, the remainder to Sidi-Bel Abbes, separated by a blank row.
 
 ```python
 dataset = pd.read_csv('Algerian_forest_fires_dataset_UPDATE.csv', header=1)
 ```
 
 ### Step 2 — Data Cleaning
-This is the unglamorous but critical part. In order:
+Performed in the following order:
 
 1. **Tag the region** — rows `0:122` get `Region = 0` (Bejaia), rows `122:` get `Region = 1` (Sidi-Bel Abbes).
-2. **Drop nulls** — the row that separated the two regions in the raw file becomes a fully-null row once concatenated; it's dropped.
-3. **Strip column names** — several column headers had trailing/leading spaces (`" RH"`, `"Classes  "`, etc.), which silently break any code that references columns by exact name. `df.columns = df.columns.str.strip()` fixes this once, for every column, instead of patching it in a dozen places later.
-4. **Fix dtypes** — `month`, `day`, `year`, `Temperature`, `RH`, `Ws` get cast to `int`; the rest of the numeric columns get cast to `float` (everything except `Classes`, which stays text for now).
-5. **Save the cleaned dataset** so the second notebook never has to repeat this work:
+2. **Drop nulls** — the row that separated the two regions in the raw file becomes fully null once concatenated, and is dropped.
+3. **Strip column names** — several column headers contained leading/trailing whitespace (e.g. `" RH"`, `"Classes  "`), which breaks exact-match column references. `df.columns = df.columns.str.strip()` resolves this for every column in one step.
+4. **Fix dtypes** — `month`, `day`, `year`, `Temperature`, `RH`, `Ws` are cast to `int`; the remaining numeric columns are cast to `float` (`Classes` stays text at this stage).
+5. **Save the cleaned dataset** so the second notebook does not repeat this work:
 
 ```python
 df.to_csv('Algerian_forest_fires_cleaned_dataset.csv', index=False)
 ```
 
 ### Step 3 — Exploratory Data Analysis
-Before touching a model, the notebook looks at the data:
-- **Histograms** of every numeric feature, to see distributions and spot skew.
-- **Class balance pie chart** — roughly 58% fire / 42% not-fire, so no severe imbalance.
-- **Correlation heatmap** — a first look at which features move together.
-- **Monthly fire counts per region** — the data shows fires cluster heavily in **June–August**, peaking in **August**, and dropping off by **September**, in both regions. That's a real seasonal signal worth remembering if this ever gets used for anything time-aware.
+Before model training, the following exploratory checks were performed:
+- **Histograms** of every numeric feature, to review distributions and skew.
+- **Class balance** — roughly 58% fire / 42% not-fire, so no severe imbalance.
+- **Correlation heatmap** — an initial view of which features move together.
+- **Monthly fire counts per region** — fires cluster heavily in **June–August**, peak in **August**, and drop off by **September**, in both regions. This seasonal pattern is relevant to any future time-aware modeling.
 
 ### Step 4 — Feature Engineering & Target Definition
 ```python
@@ -130,20 +130,20 @@ X = df.drop('FWI', axis=1)   # everything except the target
 y = df['FWI']                # the target: Fire Weather Index
 ```
 
-Two teaching points here:
+Notes:
 
-- **`day`/`month`/`year` are dropped.** They were useful for the EDA trend chart in Step 3, but as raw integers they'd mislead a linear model (e.g. it has no way to know month `12` isn't "12x more" of something than month `1`).
-- **Why `.str.contains("not fire")` instead of `== "not fire"`?** Because the raw `Classes` column had messy, inconsistent values — several rows had trailing spaces or spacing typos (`"fire "`, `"not fire  "`, etc.), so an exact-match comparison would have missed and mis-encoded some rows. Matching on a substring is a pragmatic fix for messy category data — worth remembering for the next messy dataset.
+- `day`, `month`, and `year` are dropped after EDA. As raw integers, these would be misinterpreted by a linear model as ordinal magnitudes (e.g. month `12` is not "12x" of month `1`).
+- Class labels are matched using `.str.contains("not fire")` rather than an exact string match. The raw `Classes` column contained inconsistent whitespace and formatting (e.g. `"fire "`, `"not fire  "`), which an exact comparison would have missed.
 
 ### Step 5 — Train / Test Split
 ```python
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 # → 182 training rows, 61 test rows
 ```
-`random_state=42` is fixed so results are reproducible between runs.
+`random_state=42` is fixed for reproducibility.
 
 ### Step 6 — Multicollinearity Check & Feature Selection
-Several of the weather-index columns (`FFMC`, `DMC`, `DC`, `ISI`, `BUI`) are, by design, all derived from overlapping fuel-moisture calculations — so they tend to be highly correlated with each other. Feeding strongly correlated features into a linear model inflates coefficient variance and makes them harder to interpret. A small helper function walks the correlation matrix and flags anything above a threshold:
+Several of the weather-index columns (`FFMC`, `DMC`, `DC`, `ISI`, `BUI`) are, by design, derived from overlapping fuel-moisture calculations and tend to be highly correlated with each other. Strongly correlated features inflate coefficient variance in a linear model and reduce interpretability. A helper function walks the correlation matrix and flags anything above a threshold:
 
 ```python
 def correlation(dataset, threshold):
@@ -155,10 +155,10 @@ def correlation(dataset, threshold):
                 col_corr.add(corr_matrix.columns[i])
     return col_corr
 
-corr_features = correlation(X_train, 0.85)   # threshold chosen by domain judgment, not fixed math
+corr_features = correlation(X_train, 0.85)   # threshold selected via domain judgment
 ```
 
-With a **0.85** threshold, this drops **`DC`** and **`BUI`** — both turn out to correlate above 0.94 with `DMC`, which makes sense since BUI is itself computed from DMC and DC in the standard FWI formula. Feature count goes from 11 → 9.
+With a **0.85** threshold, this drops **`DC`** and **`BUI`** — both correlate above 0.94 with `DMC`, which is expected since BUI is computed from DMC and DC in the standard FWI formula. Feature count goes from 11 → 9.
 
 ### Step 7 — Feature Scaling
 ```python
@@ -166,10 +166,10 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled  = scaler.transform(X_test)
 ```
-This step matters more here than in plain linear regression: **Ridge, Lasso, and ElasticNet all penalize coefficient size**, and that penalty is only meaningful if every feature is on the same scale. Without scaling, a feature measured in the hundreds (like `DC`) would get penalized completely differently than one measured in single digits (like `Rain`), regardless of how important either actually is. Notice also that `scaler.fit_transform` is called on **train only**, and `scaler.transform` (no `fit`) on test — fitting the scaler on test data would leak test-set statistics into training.
+This step matters more here than in plain linear regression: Ridge, Lasso, and ElasticNet all penalize coefficient size, and that penalty is only meaningful if every feature is on the same scale. Without scaling, a feature measured in the hundreds (like `DC`) would be penalized very differently from one measured in single digits (like `Rain`), regardless of its actual importance. The scaler is fit on the training set only; `transform` (without `fit`) is applied to the test set to avoid leaking test-set statistics into training.
 
 ### Step 8 — Model Training
-Four regression families are trained, each in a "default" version and (except plain Linear Regression) a cross-validated version that searches for the best regularization strength automatically:
+Four regression families are trained, each with a default configuration and (except plain Linear Regression) a cross-validated variant that searches for the best regularization strength automatically:
 
 ```mermaid
 flowchart LR
@@ -195,14 +195,14 @@ score = r2_score(y_test, y_pred)
 
 ### Step 9 — Evaluation & Model Selection
 Every model is scored on the same two metrics on the held-out test set:
-- **MAE (Mean Absolute Error)** — average size of the error, in the same units as FWI. Lower is better.
+- **MAE (Mean Absolute Error)** — average error magnitude, in the same units as FWI. Lower is better.
 - **R² Score** — proportion of variance in FWI explained by the model. Closer to 1.0 is better.
 
 ---
 
 ## 5. Model Comparison / Results
 
-Actual numbers from this run (test set, `random_state=42`):
+Results on the held-out test set (`random_state=42`):
 
 | Model | MAE ↓ | R² ↑ | Notes |
 |---|---|---|---|
@@ -214,30 +214,28 @@ Actual numbers from this run (test set, `random_state=42`):
 | Lasso (default α=1.0) | 1.1332 | 0.9492 | Default alpha over-penalizes; clearly under-tuned |
 | ElasticNet (default) | 1.8822 | 0.8753 | Weakest model — default alpha/l1_ratio is a poor fit here |
 
-**Reading these results honestly:** plain **Linear Regression wins**, with Ridge essentially tied. That's a meaningful result, not just an anticlimax — it suggests that once the highly-correlated features (`DC`, `BUI`) were removed in Step 6, the remaining 9 features didn't have enough multicollinearity or noise left for regularization to add value. The Lasso/ElasticNet *default* runs look bad mainly because their default `alpha=1.0` was never tuned for this dataset's scale — the CV versions close most of that gap, which is itself the lesson: **always compare a default model against its CV-tuned counterpart before concluding a model family "doesn't work."**
+Linear Regression achieved the best performance, with Ridge close behind. This suggests that once the highly collinear features (`DC`, `BUI`) were removed in Step 6, the remaining nine features did not carry enough multicollinearity or noise for regularization to add further benefit. The default Lasso and ElasticNet runs underperform primarily because their default `alpha=1.0` was not tuned for this dataset's scale — the cross-validated variants close most of that gap, which is the broader takeaway: compare a model's default and CV-tuned versions before concluding that a given regularization approach underperforms.
 
 ---
 
 ## 6. Key ML Concepts Covered
 
-- Cleaning inconsistent categorical text data (`.str.contains` instead of exact match)
+- Cleaning inconsistent categorical text data via substring matching
 - Detecting and removing multicollinear features via a correlation threshold
 - Why feature scaling is required before L1/L2-regularized models, but optional for plain linear regression
-- Train/test split discipline (`fit` scaler on train only)
-- Bias–variance tradeoff, illustrated concretely: Linear vs Ridge vs Lasso vs ElasticNet on the same data
+- Train/test split discipline (fitting the scaler on train only)
+- Bias–variance tradeoff, illustrated with Linear vs Ridge vs Lasso vs ElasticNet on the same data
 - Hyperparameter search via `*CV` estimators (`LassoCV`, `RidgeCV`, `ElasticNetCV`)
 - Evaluating regression models with MAE and R² together, not just one metric
 
 ---
 
-## 7. ⚠️ Things Worth Reconsidering
+## 7. Limitations
 
-Limitation:
-
-- **Possible target leakage.** `Classes` (fire / not fire) is kept as an **input feature** to predict `FWI`. But FWI is the standard input used to *derive* fire-risk classifications in the first place — so `Classes` is highly correlated with the very thing being predicted (0.78 correlation with FFMC, and by extension with FWI). Worth testing model performance **with `Classes` excluded** from `X` to see how much of that 0.98 R² is coming from this shortcut.
-- **RidgeCV's alpha grid is the sklearn default (`[0.1, 1, 10]`)** — never widened. Worth trying `RidgeCV(alphas=np.logspace(-3, 3, 50))` to see if a better alpha exists outside that narrow range.
-- **`ridgecv.get_params()` output shows a `normalize` parameter**, which was removed from scikit-learn in newer versions — this notebook was run on an older scikit-learn. If you re-run it on a current environment, expect an error here and a few other minor API differences.
-- **No residual analysis.** The scatter plots show predicted vs. actual, but there's no residual-vs-fitted plot, which would show more clearly whether errors are random or systematically biased for high/low FWI values.
+- **Possible target leakage** — `Classes` (fire / not fire) is included as an input feature for predicting `FWI`. FWI is the standard basis for deriving fire-risk classification, so `Classes` is highly correlated with the target (0.78 correlation with FFMC, and by extension with FWI). Model performance should be re-evaluated with `Classes` excluded from the feature set to quantify its contribution to the reported R².
+- **RidgeCV alpha grid** — the default scikit-learn grid (`[0.1, 1, 10]`) was used without modification. A wider grid (e.g. `np.logspace(-3, 3, 50)`) may yield a better-performing alpha.
+- **Dependency version** — `ridgecv.get_params()` output includes a `normalize` parameter, which was removed in newer scikit-learn releases. The notebooks were originally run on an older version; running them in a current environment may raise minor API compatibility errors.
+- **No residual analysis** — only predicted-vs-actual scatter plots are included. A residual-vs-fitted plot would give a clearer view of whether prediction errors are randomly distributed or biased at high/low FWI values.
 
 ---
 
@@ -265,7 +263,7 @@ jupyter notebook Notebooks/01_Data_Cleaning_and_EDA.ipynb   # produces the clean
 jupyter notebook Notebooks/02_Model_Training.ipynb          # trains & evaluates models
 ```
 
-
+---
 
 ## 10. Author
 
